@@ -1,0 +1,145 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+input_size = 2
+hidden_size = 10
+output_size = 1
+
+# Generate training data
+np.random.seed(42)
+X_train = np.random.randint(0, 100, (2100, 2))  # 1000 pairs of numbers
+Y_train = np.sum(X_train, axis=1, keepdims=True)  # Sum of each pair
+
+
+#He Initialization for Relu
+W1 = np.random.randn(input_size, hidden_size) * np.sqrt(2 / input_size)
+W2 = np.random.randn(hidden_size, output_size) * np.sqrt(2 / input_size)
+b1 = np.zeros((1, hidden_size))
+b2 = np.zeros((1, output_size))
+
+# Leaky_relu + Derivative of leaky Relu
+def leaky_relu(x, alpha = 0.01):
+    return np.where(x > 0, x, alpha * x)
+
+def deriv_leaky_relu(x, alpha = 0.01):
+    return np.where(x > 0, 1, alpha)
+
+
+# Activation function + Derivative of Activation
+def relu(x):
+    return np.maximum(0, x)
+
+
+def relu_deriv(x):
+    return np.where(x > 0, 1, 0)
+
+
+def linear(x):
+    return x  # No activation for output layer
+
+
+def forward(X):
+    global W1, W2, b1, b2
+    Z1 = np.dot(X, W1) + b1
+    A1 = leaky_relu(Z1)
+    Z2 = np.dot(A1, W2) + b2
+    A2 = linear(Z2)  # No activation for final output
+    return Z1, A1, Z2, A2
+
+
+def backward(X, Y, Z1, A1, Z2, A2, learning_rate=0.0001):
+    global W1, W2, b1, b2
+
+    # Compute gradients
+    dZ2 = (A2 - Y)  # Derivative of MSE loss w.r.t output
+    dW2 = np.dot(A1.T, dZ2) / X.shape[0]
+    db2 = np.sum(dZ2, axis=0, keepdims=True)
+
+    dA1 = np.dot(dZ2, W2.T)
+    dZ1 = dA1 * leaky_relu(Z1)
+    dW1 = np.dot(X.T, dZ1) / X.shape[0]
+    db1 = np.sum(dZ1, axis=0, keepdims=True)
+
+    # Update weights and biases
+    W1 -= learning_rate * dW1
+    b1 -= learning_rate * db1
+    W2 -= learning_rate * dW2
+    b2 -= learning_rate * db2
+
+
+#Huber Loss Implementation
+def huber_loss(Y, Y_pred, delta = 1.0):
+    error = Y - Y_pred
+    return np.mean(np.where(np.abs(error) < delta, 0.5* error**2, delta * (np.abs(error) - 0.5 * delta)))
+
+#MSE Error Implmentation
+def compute_loss(Y, Y_pred):
+    return np.mean((Y - Y_pred) ** 2)
+
+# Smooth L1 Loss
+def smooth_l1_loss(Y, Y_pred, delta = 1.0):
+    error = Y - Y_pred
+    loss = np.where(np.abs(error) < delta,
+                    0.5 * (error ** 2),
+                    delta * (np.abs(error) - 0.5 * delta))
+    return np.mean(loss)
+
+
+def backward(X, Y, Z1, A1, Z2, A2, learning_rate):
+    global W1, b1, W2, b2
+
+    # Compute gradients
+    dZ2 = (A2 - Y)  # Derivative of MSE loss w.r.t output
+    dW2 = np.dot(A1.T, dZ2) / X.shape[0]
+    db2 = np.sum(dZ2, axis=0, keepdims=True)
+
+    dA1 = np.dot(dZ2, W2.T)
+    dZ1 = dA1 * deriv_leaky_relu(Z1)
+    dW1 = np.dot(X.T, dZ1) / X.shape[0]
+    db1 = np.sum(dZ1, axis=0, keepdims=True)
+
+    # Update weights and biases
+    W1 -= learning_rate * dW1
+    b1 -= learning_rate * db1
+    W2 -= learning_rate * dW2
+    b2 -= learning_rate * db2
+
+
+epochs = 10000
+losses = []
+
+for epoch in range(epochs):
+    Z1, A1, Z2, A2 = forward(X_train)
+    loss = smooth_l1_loss(Y_train, A2)
+    backward(X_train, Y_train, Z1, A1, Z2, A2, learning_rate=0.0001)
+
+    if epoch % 100 == 0:
+        print(f"Epoch {epoch}, Loss: {loss:.4f}")
+
+    losses.append(loss)
+
+def predict(x1, x2):
+    X_test = np.array([[x1, x2]])
+    _, _, _, A2 = forward(X_test)
+    return A2[0, 0]
+"""
+# Test
+for y in range(101,900):
+    for i in range(101,900):
+        x1, x2 = i, y
+        predicted_sum = predict(x1, x2)
+        print(f"Predicted sum of {x1} + {x2} = {predicted_sum:.2f}")
+print("End of Test")
+"""
+x1, x2 = 1259010, 347123
+predicted_sum = predict(x1, x2)
+print(f"Predicted sum of {x1} + {x2} = {predicted_sum:.2f}")
+
+"""
+plt.plot(losses)  # 'losses' is the list of loss values from training
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Loss Over Time")
+plt.show()
+"""
